@@ -169,14 +169,14 @@ func (c *Client) HashMod(key, value string) (bool, error) {
 	return true, nil
 }
 
-func (c *Client) HashDel(key, value string) (bool, error) {
+func (c *Client) HashDel(key string) (bool, error) {
 	conn, release, err := c.acquireConnection()
 	if err != nil {
 		return false, err
 	}
 	defer release()
 
-	err = c.WriteRequest([]string{HashDel, key, value}, conn)
+	err = c.WriteRequest([]string{HashDel, key}, conn)
 	if err != nil {
 		return false, err
 	}

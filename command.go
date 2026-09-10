@@ -17,9 +17,9 @@ const (
 	RbtreeDel = "RDEL"
 )
 
-func (c *Client) WriteRequest(args []string, conn *connection) error {
+func (c *Client) writeRequest(args []string, conn *connection) error {
 
-	command, err := c.BuildCommand(args)
+	command, err := c.buildCommand(args)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (c *Client) WriteRequest(args []string, conn *connection) error {
 	return nil
 }
 
-func (c *Client) BuildCommand(args []string) ([]byte, error) {
+func (c *Client) buildCommand(args []string) ([]byte, error) {
 
 	count := len(args)
 	if count == 0 {
@@ -80,7 +80,7 @@ func (c *Client) HashGet(key string) (string, error) {
 	}
 	defer release()
 
-	err = c.WriteRequest([]string{HashGet, key}, conn)
+	err = c.writeRequest([]string{HashGet, key}, conn)
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +113,7 @@ func (c *Client) HashSet(key, value string) (bool, error) {
 	}
 	defer release()
 
-	err = c.WriteRequest([]string{HashSet, key, value}, conn)
+	err = c.writeRequest([]string{HashSet, key, value}, conn)
 	if err != nil {
 		return false, err
 	}
@@ -145,7 +145,7 @@ func (c *Client) HashMod(key, value string) (bool, error) {
 	}
 	defer release()
 
-	err = c.WriteRequest([]string{HashMod, key, value}, conn)
+	err = c.writeRequest([]string{HashMod, key, value}, conn)
 	if err != nil {
 		return false, err
 	}
@@ -176,7 +176,7 @@ func (c *Client) HashDel(key string) (bool, error) {
 	}
 	defer release()
 
-	err = c.WriteRequest([]string{HashDel, key}, conn)
+	err = c.writeRequest([]string{HashDel, key}, conn)
 	if err != nil {
 		return false, err
 	}

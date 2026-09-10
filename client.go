@@ -10,8 +10,20 @@ import (
 	"github.com/silenceper/pool"
 )
 
+const (
+	defaultInitialCap  = 1
+	defaultMaxIdle     = 4
+	defaultMaxCap      = 5
+	defaultIdleTimeout = 10
+)
+
 type Client struct {
 	pool ConnectionPool
+}
+
+type connection struct {
+	Conn   net.Conn
+	Reader *bufio.Reader
 }
 
 type ConnectionPool interface {
@@ -20,18 +32,13 @@ type ConnectionPool interface {
 	Close(interface{}) error
 }
 
-type connection struct {
-	Conn   net.Conn
-	Reader *bufio.Reader
-}
-
 type ConnectionPoolConfig struct {
 	Host        string
 	Port        int
 	InitialCap  int
 	MaxIdle     int
 	MaxCap      int
-	IdleTimeout int64
+	IdleTimeout time.Duration
 }
 
 func NewConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
@@ -65,7 +72,7 @@ func NewConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
 		MaxCap:      cnf.MaxCap,
 		Factory:     factory,
 		Close:       close,
-		IdleTimeout: time.Duration(cnf.IdleTimeout) * time.Minute,
+		IdleTimeout: cnf.IdleTimeout * time.Minute,
 	}
 	pool, err := pool.NewChannelPool(poolConfig)
 	if err != nil {
@@ -75,10 +82,29 @@ func NewConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
 	return pool, nil
 }
 
-func NewClient(pool ConnectionPool) *Client {
+func NewClient(cnf *ConnectionPoolConfig) (*Client, error) {
+
+	config := *cnf
+	if cnf.IdleTimeout == 0 {
+		config.IdleTimeout = defaultIdleTimeout
+	}
+	if cnf.InitialCap == 0 {
+		config.InitialCap = defaultInitialCap
+	}
+	if cnf.MaxCap == 0 {
+		config.MaxCap = defaultMaxCap
+	}
+	if cnf.MaxIdle == 0 {
+		config.MaxIdle = defaultMaxIdle
+	}
+
+	pool, err := NewConnectionPool(&config)
+	if err != nil {
+		return nil, err
+	}
 	return &Client{
 		pool: pool,
-	}
+	}, nil
 }
 
 func (c *Client) acquireConnection() (*connection, func(), error) {

@@ -1,6 +1,6 @@
 module github.com/yansss626/go-lidis
 
-go 1.26.7
+go 1.25.0
 
 require github.com/silenceper/pool v1.0.0
 

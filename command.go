@@ -77,11 +77,13 @@ func (c *Connection) HashGet(key string) (string, error) {
 
 	err := c.writeRequest([]string{HashGet, key})
 	if err != nil {
+		c.markError(err)
 		return "", err
 	}
 
 	Reply, err := c.readReply()
 	if err != nil {
+		c.markError(err)
 		return "", err
 	}
 
@@ -104,11 +106,13 @@ func (c *Connection) HashSet(key, value string) (bool, error) {
 
 	err := c.writeRequest([]string{HashSet, key, value})
 	if err != nil {
+		c.markError(err)
 		return false, err
 	}
 
 	Reply, err := c.readReply()
 	if err != nil {
+		c.markError(err)
 		return false, err
 	}
 
@@ -131,11 +135,13 @@ func (c *Connection) HashMod(key, value string) (bool, error) {
 
 	err := c.writeRequest([]string{HashMod, key, value})
 	if err != nil {
+		c.markError(err)
 		return false, err
 	}
 
 	Reply, err := c.readReply()
 	if err != nil {
+		c.markError(err)
 		return false, err
 	}
 
@@ -157,11 +163,13 @@ func (c *Connection) HashDel(key string) (bool, error) {
 
 	err := c.writeRequest([]string{HashDel, key})
 	if err != nil {
+		c.markError(err)
 		return false, err
 	}
 
 	Reply, err := c.readReply()
 	if err != nil {
+		c.markError(err)
 		return false, err
 	}
 

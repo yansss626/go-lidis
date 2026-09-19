@@ -2,7 +2,9 @@ package lidis
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"time"
@@ -24,6 +26,7 @@ type ClientPool struct {
 type Connection struct {
 	conn   net.Conn
 	reader *bufio.Reader
+	closed bool
 }
 
 type ConnectionPool interface {
@@ -121,16 +124,24 @@ func NewConnection(addr string) (*Connection, error) {
 }
 
 func (p *ClientPool) Get() (*Connection, error) {
-	obj, err := p.pool.Get()
-	if err != nil {
-		return nil, err
+	for {
+		obj, err := p.pool.Get()
+		if err != nil {
+			return nil, err
+		}
+		client, ok := obj.(*Connection)
+		if !ok {
+			p.pool.Close(obj)
+			return nil, fmt.Errorf("failed to type assertion Connection")
+		}
+		if client.closed {
+			p.pool.Close(obj)
+			continue
+		}
+
+		return client, nil
 	}
-	client, ok := obj.(*Connection)
-	if !ok {
-		p.pool.Close(obj)
-		return nil, fmt.Errorf("failed to type assertion Connection")
-	}
-	return client, nil
+
 }
 
 // 放回一个连接
@@ -149,5 +160,19 @@ func (c *ClientPool) Release() {
 }
 
 func (c *Connection) Close() error {
+	if c.closed {
+		return nil
+	}
+	c.closed = true
 	return c.conn.Close()
+}
+
+func (c *Connection) markError(err error) {
+	if isNetWorkError(err) {
+		c.closed = true
+	}
+}
+
+func isNetWorkError(err error) bool {
+	return errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF)
 }

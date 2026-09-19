@@ -123,40 +123,50 @@ func NewConnection(addr string) (*Connection, error) {
 	}, nil
 }
 
-func (p *ClientPool) Get() (*Connection, error) {
+func (p *ClientPool) Get() (*Connection, func(), error) {
 	for {
 		obj, err := p.pool.Get()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		client, ok := obj.(*Connection)
 		if !ok {
 			p.pool.Close(obj)
-			return nil, fmt.Errorf("failed to type assertion Connection")
+			return nil, nil, fmt.Errorf("failed to type assertion Connection")
 		}
 		if client.closed {
 			p.pool.Close(obj)
 			continue
 		}
-
-		return client, nil
+		released := false
+		return client, func() {
+			if released {
+				return
+			}
+			released = true
+			if client.closed {
+				p.discard(client)
+			} else {
+				p.put(client)
+			}
+		}, nil
 	}
 
 }
 
 // 放回一个连接
-func (c *ClientPool) Put(client *Connection) error {
-	return c.pool.Put(client)
+func (p *ClientPool) put(client *Connection) error {
+	return p.pool.Put(client)
 }
 
 // 关闭一个连接
-func (c *ClientPool) Discard(client *Connection) error {
-	return c.pool.Close(client)
+func (p *ClientPool) discard(client *Connection) error {
+	return p.pool.Close(client)
 }
 
 // 释放连接池
-func (c *ClientPool) Release() {
-	c.pool.Release()
+func (p *ClientPool) Release() {
+	p.pool.Release()
 }
 
 func (c *Connection) Close() error {

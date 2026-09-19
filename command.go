@@ -91,12 +91,11 @@ func (c *Connection) HashGet(key string) (string, error) {
 		if Reply.Type == ErrorReply {
 			return "", fmt.Errorf("%s", Reply.Bytes)
 		}
-		return "", fmt.Errorf("reply type mismatch: expected string, got %c", Reply.Type)
+		return "", fmt.Errorf("reply type mismatch: expected '$', got '%c'", Reply.Type)
 	}
 
 	if Reply.IsNull {
 		return "", nil
-
 	}
 
 	return string(Reply.Bytes), nil
@@ -124,7 +123,7 @@ func (c *Connection) HashSet(key, value string) (bool, error) {
 		if !Reply.IsNull {
 			return false, nil
 		}
-		return false, fmt.Errorf("reply type mismatch: expected string, got %c", Reply.Type)
+		return false, fmt.Errorf("reply type mismatch: expected '+', got '%c'", Reply.Type)
 	}
 
 	return true, nil
@@ -149,11 +148,10 @@ func (c *Connection) HashMod(key, value string) (bool, error) {
 		if Reply.Type == ErrorReply {
 			return false, fmt.Errorf("%s", Reply.Bytes)
 		}
-
-		if Reply.Type == IntegerReply {
+		if Reply.IsNull {
 			return false, nil
 		}
-		return false, fmt.Errorf("reply type mismatch: expected string, got %c", Reply.Type)
+		return false, fmt.Errorf("reply type mismatch: expected '+', got '%c'", Reply.Type)
 	}
 
 	return true, nil
@@ -178,10 +176,10 @@ func (c *Connection) HashDel(key string) (bool, error) {
 			return false, fmt.Errorf("%s", Reply.Bytes)
 		}
 
-		if !Reply.IsNull {
+		if Reply.IsNull {
 			return false, nil
 		}
-		return false, fmt.Errorf("reply type mismatch: expected string, got %c", Reply.Type)
+		return false, fmt.Errorf("reply type mismatch: expected '+', got '%c'", Reply.Type)
 	}
 
 	return true, nil

@@ -11,25 +11,26 @@ import (
 )
 
 const (
-	defaultInitialCap  = 1
-	defaultMaxIdle     = 4
-	defaultMaxCap      = 5
-	defaultIdleTimeout = 10
+	defaultInitialCap  = 0
+	defaultMaxIdle     = 5
+	defaultMaxCap      = 20
+	defaultIdleTimeout = 10 * time.Minute
 )
 
-type Client struct {
+type ClientPool struct {
 	pool ConnectionPool
 }
 
-type connection struct {
-	Conn   net.Conn
-	Reader *bufio.Reader
+type Connection struct {
+	conn   net.Conn
+	reader *bufio.Reader
 }
 
 type ConnectionPool interface {
 	Get() (interface{}, error)
 	Put(interface{}) error
 	Close(interface{}) error
+	Release()
 }
 
 type ConnectionPoolConfig struct {
@@ -41,7 +42,7 @@ type ConnectionPoolConfig struct {
 	IdleTimeout time.Duration
 }
 
-func NewConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
+func newConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
 
 	factory := func() (interface{}, error) {
 		addr := net.JoinHostPort(cnf.Host, strconv.Itoa(cnf.Port))
@@ -49,20 +50,20 @@ func NewConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &connection{
-			Conn:   conn,
-			Reader: bufio.NewReader(conn),
+		return &Connection{
+			conn:   conn,
+			reader: bufio.NewReader(conn),
 		}, nil
 	}
 
 	close := func(v interface{}) error {
 
-		conn, ok := v.(*connection)
+		client, ok := v.(*Connection)
 		if !ok {
 			return fmt.Errorf("invalid connection type")
 		}
 
-		return conn.Conn.Close()
+		return client.conn.Close()
 
 	}
 
@@ -72,7 +73,7 @@ func NewConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
 		MaxCap:      cnf.MaxCap,
 		Factory:     factory,
 		Close:       close,
-		IdleTimeout: cnf.IdleTimeout * time.Minute,
+		IdleTimeout: cnf.IdleTimeout,
 	}
 	pool, err := pool.NewChannelPool(poolConfig)
 	if err != nil {
@@ -82,7 +83,7 @@ func NewConnectionPool(cnf *ConnectionPoolConfig) (ConnectionPool, error) {
 	return pool, nil
 }
 
-func NewClient(cnf *ConnectionPoolConfig) (*Client, error) {
+func NewClientPool(cnf *ConnectionPoolConfig) (*ClientPool, error) {
 
 	config := *cnf
 	if cnf.IdleTimeout == 0 {
@@ -98,29 +99,55 @@ func NewClient(cnf *ConnectionPoolConfig) (*Client, error) {
 		config.MaxIdle = defaultMaxIdle
 	}
 
-	pool, err := NewConnectionPool(&config)
+	pool, err := newConnectionPool(&config)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
+	return &ClientPool{
 		pool: pool,
 	}, nil
 }
 
-func (c *Client) acquireConnection() (*connection, func(), error) {
-	obj, err := c.pool.Get()
+func NewConnection(addr string) (*Connection, error) {
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	conn, ok := obj.(*connection)
+
+	return &Connection{
+		conn:   conn,
+		reader: bufio.NewReader(conn),
+	}, nil
+}
+
+func (p *ClientPool) Get() (*Connection, error) {
+	obj, err := p.pool.Get()
+	if err != nil {
+		return nil, err
+	}
+	client, ok := obj.(*Connection)
 	if !ok {
-		c.pool.Close(obj)
-		return nil, nil, fmt.Errorf("invalid connection type")
+		p.pool.Close(obj)
+		return nil, fmt.Errorf("failed to type assertion Connection")
 	}
+	return client, nil
+}
 
-	release := func() {
-		c.pool.Put(obj)
-	}
+// 放回一个连接
+func (c *ClientPool) Put(client *Connection) error {
+	return c.pool.Put(client)
+}
 
-	return conn, release, nil
+// 关闭一个连接
+func (c *ClientPool) Discard(client *Connection) error {
+	return c.pool.Close(client)
+}
+
+// 释放连接池
+func (c *ClientPool) Release() {
+	c.pool.Release()
+}
+
+func (c *Connection) Close() error {
+	return c.conn.Close()
 }

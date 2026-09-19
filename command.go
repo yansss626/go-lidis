@@ -17,7 +17,7 @@ const (
 	RbtreeDel = "RDEL"
 )
 
-func (c *Client) writeRequest(args []string, conn *connection) error {
+func (c *Connection) writeRequest(args []string) error {
 
 	command, err := c.buildCommand(args)
 	if err != nil {
@@ -31,7 +31,7 @@ func (c *Client) writeRequest(args []string, conn *connection) error {
 	length := len(command)
 
 	for totalWriten < length {
-		n, err := conn.Conn.Write(command[totalWriten:])
+		n, err := c.conn.Write(command[totalWriten:])
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func (c *Client) writeRequest(args []string, conn *connection) error {
 	return nil
 }
 
-func (c *Client) buildCommand(args []string) ([]byte, error) {
+func (c *Connection) buildCommand(args []string) ([]byte, error) {
 
 	count := len(args)
 	if count == 0 {
@@ -73,19 +73,14 @@ func (c *Client) buildCommand(args []string) ([]byte, error) {
 	return []byte(command.String()), nil
 }
 
-func (c *Client) HashGet(key string) (string, error) {
-	conn, release, err := c.acquireConnection()
-	if err != nil {
-		return "", err
-	}
-	defer release()
+func (c *Connection) HashGet(key string) (string, error) {
 
-	err = c.writeRequest([]string{HashGet, key}, conn)
+	err := c.writeRequest([]string{HashGet, key})
 	if err != nil {
 		return "", err
 	}
 
-	Reply, err := c.readReply(conn)
+	Reply, err := c.readReply()
 	if err != nil {
 		return "", err
 	}
@@ -105,20 +100,14 @@ func (c *Client) HashGet(key string) (string, error) {
 	return string(Reply.Bytes), nil
 }
 
-func (c *Client) HashSet(key, value string) (bool, error) {
+func (c *Connection) HashSet(key, value string) (bool, error) {
 
-	conn, release, err := c.acquireConnection()
-	if err != nil {
-		return false, err
-	}
-	defer release()
-
-	err = c.writeRequest([]string{HashSet, key, value}, conn)
+	err := c.writeRequest([]string{HashSet, key, value})
 	if err != nil {
 		return false, err
 	}
 
-	Reply, err := c.readReply(conn)
+	Reply, err := c.readReply()
 	if err != nil {
 		return false, err
 	}
@@ -138,19 +127,14 @@ func (c *Client) HashSet(key, value string) (bool, error) {
 
 }
 
-func (c *Client) HashMod(key, value string) (bool, error) {
-	conn, release, err := c.acquireConnection()
-	if err != nil {
-		return false, err
-	}
-	defer release()
+func (c *Connection) HashMod(key, value string) (bool, error) {
 
-	err = c.writeRequest([]string{HashMod, key, value}, conn)
+	err := c.writeRequest([]string{HashMod, key, value})
 	if err != nil {
 		return false, err
 	}
 
-	Reply, err := c.readReply(conn)
+	Reply, err := c.readReply()
 	if err != nil {
 		return false, err
 	}
@@ -169,19 +153,14 @@ func (c *Client) HashMod(key, value string) (bool, error) {
 	return true, nil
 }
 
-func (c *Client) HashDel(key string) (bool, error) {
-	conn, release, err := c.acquireConnection()
-	if err != nil {
-		return false, err
-	}
-	defer release()
+func (c *Connection) HashDel(key string) (bool, error) {
 
-	err = c.writeRequest([]string{HashDel, key}, conn)
+	err := c.writeRequest([]string{HashDel, key})
 	if err != nil {
 		return false, err
 	}
 
-	Reply, err := c.readReply(conn)
+	Reply, err := c.readReply()
 	if err != nil {
 		return false, err
 	}

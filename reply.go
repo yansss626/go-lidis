@@ -22,10 +22,10 @@ type Reply struct {
 	IsNull bool
 }
 
-func (c *Client) readReply(conn *connection) (*Reply, error) {
+func (c *Connection) readReply() (*Reply, error) {
 
 	// 按行读取
-	line, err := conn.Reader.ReadBytes('\n')
+	line, err := c.reader.ReadBytes('\n')
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (c *Client) readReply(conn *connection) (*Reply, error) {
 		}, nil
 
 	case StringReply: // '$'
-		return c.parseBulkString(string(payload), conn)
+		return c.parseBulkString(string(payload))
 
 	case ErrorReply: // '-'
 		return &Reply{
@@ -70,7 +70,7 @@ func (c *Client) readReply(conn *connection) (*Reply, error) {
 
 }
 
-func (c *Client) parseBulkString(payload string, conn *connection) (*Reply, error) {
+func (c *Connection) parseBulkString(payload string) (*Reply, error) {
 
 	// 先判断是否为空值
 	valueLength, err := strconv.ParseInt(payload, 10, 64)
@@ -91,14 +91,14 @@ func (c *Client) parseBulkString(payload string, conn *connection) (*Reply, erro
 
 	// 精确读取 valuelength 个字节
 	buffer := make([]byte, valueLength)
-	_, err = io.ReadFull(conn.Reader, buffer)
+	_, err = io.ReadFull(c.reader, buffer)
 	if err != nil {
 		return nil, err
 	}
 
 	// 判断结束字符是否为 "\r\n"
 	crlf := make([]byte, 2)
-	_, err = io.ReadFull(conn.Reader, crlf)
+	_, err = io.ReadFull(c.reader, crlf)
 	if err != nil {
 		return nil, err
 	}
